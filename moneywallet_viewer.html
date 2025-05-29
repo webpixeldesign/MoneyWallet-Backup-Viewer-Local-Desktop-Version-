@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyWallet Advanced Viewer</title>
+    <style>
+        /* CSS from the version you said "looks perfect" visually, before the month-row order fix */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            background-color: #f8f9fa;
+            color: #212529;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .top-bar h1 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        #fileInputContainer input[type="file"] {
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        
+        #controlsContainer {
+            padding: 10px 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        #filterControls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px; 
+            align-items: center;
+        }
+
+        #filterControls input[type="text"], 
+        #filterControls input[type="date"] {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ced4da;
+        }
+        
+        #filterControls button { 
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #007bff;
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        #filterControls button:hover {
+            background-color: #0056b3;
+        }
+
+        .filter-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .filter-dropdown-button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #6c757d;
+            background-color: #f8f9fa;
+            color: #212529;
+            cursor: pointer;
+        }
+         .filter-dropdown-button:hover {
+            background-color: #e2e6ea;
+         }
+
+        .filter-dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            min-width: 200px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            z-index: 10; 
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .checkbox-list label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: normal;
+        }
+         .checkbox-list input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        #tableContainer {
+            flex-grow: 1;
+            overflow-y: auto; 
+            margin: 0 20px 20px 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #f1f3f5;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 2; 
+        }
+        th.sortable {
+            cursor: pointer;
+        }
+        th.sortable:hover {
+            background-color: #e2e6ea;
+        }
+        .sort-indicator {
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        
+        .month-overview-row td {
+            background-color: #e2e8f0;
+            font-weight: bold;
+            font-size: 0.8em;
+            padding: 12px; /* Padding is on the TD */
+            position: sticky; 
+            z-index: 1; 
+            /* 'top' value will be set by JS based on header height */
+        }
+        /* Spans inside the innerDiv of month-overview-row will align naturally based on flex */
+        .month-title { } 
+        .month-summary { } 
+        .month-income { color: #28a745; margin-left: 15px;}
+        .month-expense { color: #dc3545; margin-left: 15px;}
+        .month-net { margin-left: 15px; }
+
+
+        tr:nth-child(even):not(.month-overview-row) { 
+            background-color: #f8f9fa;
+        }
+        tr:hover:not(.month-overview-row) {
+            background-color: #e9ecef;
+        }
+
+        .expense-amount {
+            color: #c0392b; 
+        }
+        .income-amount {
+            color: #27ae60; 
+        }
+        
+        #summary, #autoLoadStatus {
+            padding: 8px 20px; 
+            text-align: center;
+            font-size: 0.9em;
+            border-bottom: 1px solid #dee2e6; 
+        }
+        #autoLoadStatus {
+            background-color: #fff3cd;
+            color: #856404;
+            display: none; 
+        }
+
+
+        .footer {
+            text-align: center;
+            padding: 10px; 
+            font-size: 0.9em;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <h1>MoneyWallet Viewer</h1>
+        <div id="fileInputContainer">
+            <input type="file" id="fileInput" accept=".json">
+        </div>
+    </div>
+    <div id="autoLoadStatus"></div>
+    <div id="summary">Attempting to load default file or use upload.</div>
+    
+    <div id="controlsContainer">
+        <div id="filterControls">
+            <input type="text" id="globalSearch" placeholder="Global Search..." style="flex-grow: 1; min-width: 150px;">
+            
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <span>From:</span><input type="date" id="startDateFilter" title="Start Date">
+                <span>To:</span><input type="date" id="endDateFilter" title="End Date">
+            </div>
+
+            <div class="filter-dropdown">
+                <button id="categoryFilterButton" class="filter-dropdown-button">Categories ▼</button>
+                <div id="categoryFilterDropdownContent" class="filter-dropdown-content checkbox-list">
+                    </div>
+            </div>
+
+            <div class="filter-dropdown">
+                <button id="walletFilterButton" class="filter-dropdown-button">Wallets ▼</button>
+                <div id="walletFilterDropdownContent" class="filter-dropdown-content checkbox-list">
+                    </div>
+            </div>
+            <button onclick="resetFilters()">Reset All Filters</button>
+        </div>
+    </div>
+    
+    <div id="tableContainer">
+        <table id="transactionsTable">
+            <thead>
+                <tr>
+                    <th>Date / Time</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th id="amountHeader" class="sortable">Amount <span id="amountSortIndicator" class="sort-indicator"></span></th>
+                    <th>Wallet</th>
+                    <th>Note</th>
+                    <th>People</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+
+    <div class="footer">
+        <p>Local viewer. Your data remains in your browser.</p>
+    </div>
+
+    <script>
+        const defaultLocalFilename = "database.json"; 
+
+        let allProcessedTransactions = [];
+        let categoriesMap = new Map();
+        let walletsMap = new Map();
+        let currenciesMap = new Map();
+        let peopleMap = new Map();
+        let rawData = {}; 
+        let amountSortState = 'default'; 
+
+        const gebi = (id) => document.getElementById(id); 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            attemptAutoLoadDefaultFile();
+            gebi('fileInput').addEventListener('change', handleFileUpload);
+            
+            gebi('globalSearch').addEventListener('input', applyFiltersAndRender);
+            gebi('startDateFilter').addEventListener('change', applyFiltersAndRender);
+            gebi('endDateFilter').addEventListener('change', applyFiltersAndRender);
+
+            gebi('amountHeader').addEventListener('click', cycleAmountSort);
+
+            setupFilterDropdown('categoryFilterButton', 'categoryFilterDropdownContent');
+            setupFilterDropdown('walletFilterButton', 'walletFilterDropdownContent');
+
+            window.addEventListener('click', function(event) {
+                if (!event.target.matches('.filter-dropdown-button') && 
+                    !event.target.closest('.filter-dropdown-content')) { 
+                    closeAllFilterDropdowns();
+                }
+            });
+            adjustMonthOverviewTop();
+            const resizeObserver = new ResizeObserver(adjustMonthOverviewTop);
+            const theadElement = gebi('transactionsTable').querySelector('thead');
+            if(theadElement) { 
+                 resizeObserver.observe(theadElement);
+            }
+        });
+
+        function adjustMonthOverviewTop() {
+            const thead = gebi('transactionsTable').querySelector('thead tr');
+            if (!thead) return;
+            const stickyHeaderHeight = thead.offsetHeight;
+            
+             const styleSheets = document.styleSheets;
+             for (const styleSheet of styleSheets) {
+                try {
+                    if (!styleSheet.cssRules) continue;
+                    for (const rule of styleSheet.cssRules) {
+                        if (rule.selectorText === '.month-overview-row td') {
+                            rule.style.top = `${stickyHeaderHeight}px`;
+                            return; 
+                        }
+                    }
+                } catch (e) {
+                    // console.warn("Cannot access CSS rules for adjusting month overview top:", e);
+                }
+            }
+        }
+        
+        function setupFilterDropdown(buttonId, contentId) {
+            const button = gebi(buttonId);
+            const content = gebi(contentId);
+            button.addEventListener('click', (event) => {
+                event.stopPropagation(); 
+                const isCurrentlyShown = content.style.display === 'block';
+                closeAllFilterDropdowns(); 
+                if (!isCurrentlyShown) { 
+                     content.style.display = 'block';
+                }
+            });
+            content.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+        }
+
+        function closeAllFilterDropdowns() {
+            gebi('categoryFilterDropdownContent').style.display = 'none';
+            gebi('walletFilterDropdownContent').style.display = 'none';
+        }
+
+        async function attemptAutoLoadDefaultFile() {
+            const statusDiv = gebi('autoLoadStatus');
+            if (!defaultLocalFilename) {
+                statusDiv.textContent = "No default file configured. Please use 'Choose File'.";
+                statusDiv.style.display = 'block';
+                updateSummary(0,0);
+                return;
+            }
+            try {
+                const response = await fetch(defaultLocalFilename);
+                if (!response.ok) throw new Error(`HTTP ${response.status} fetching ${defaultLocalFilename}. Ensure it's in the same folder.`);
+                rawData = await response.json();
+                initializeData(rawData);
+                statusDiv.textContent = `Auto-loaded '${defaultLocalFilename}'.`;
+                statusDiv.style.backgroundColor = '#d4edda'; statusDiv.style.color = '#155724';
+                statusDiv.style.display = 'block';
+            } catch (error) {
+                console.warn("Auto-load failed:", error);
+                statusDiv.textContent = `Could not auto-load '${defaultLocalFilename}'. Use 'Choose File'. (Details: ${error.message})`;
+                statusDiv.style.backgroundColor = '#fff3cd'; statusDiv.style.color = '#856404';
+                statusDiv.style.display = 'block';
+                updateSummary(0,0);
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const statusDiv = gebi('autoLoadStatus');
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    rawData = JSON.parse(e.target.result);
+                    initializeData(rawData);
+                    statusDiv.textContent = `Loaded '${file.name}'.`;
+                    statusDiv.style.backgroundColor = '#d4edda'; statusDiv.style.color = '#155724';
+                    statusDiv.style.display = 'block';
+                } catch (err) {
+                    console.error("Error parsing uploaded JSON:", err);
+                    gebi('summary').textContent = "Error parsing uploaded file.";
+                    gebi('transactionsTable').getElementsByTagName('tbody')[0].innerHTML = '';
+                    statusDiv.textContent = `Error parsing '${file.name}'.`;
+                    statusDiv.style.backgroundColor = '#f8d7da'; statusDiv.style.color = '#721c24';
+                    statusDiv.style.display = 'block';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function initializeData(data) {
+            categoriesMap.clear(); walletsMap.clear(); currenciesMap.clear(); peopleMap.clear();
+            amountSortState = 'default'; 
+            updateAmountSortIndicator();
+
+            data.currencies?.forEach(c => currenciesMap.set(c.iso, c));
+            populateCheckboxes('categoryFilterDropdownContent', data.categories, categoriesMap, 'category');
+            populateCheckboxes('walletFilterDropdownContent', data.wallets, walletsMap, 'wallet');
+            data.people?.forEach(p => peopleMap.set(p.id, p));
+
+            allProcessedTransactions = (data.transactions || [])
+                .filter(t => !t.deleted)
+                .map(t => {
+                    const wallet = walletsMap.get(t.wallet);
+                    const category = categoriesMap.get(t.category);
+                    const currencyInfo = wallet ? currenciesMap.get(wallet.currency) : null;
+                    let amount = t.money;
+                    if (currencyInfo && currencyInfo.decimals > 0) amount /= Math.pow(10, currencyInfo.decimals);
+                    const displayAmount = t.direction === 0 ? -Math.abs(amount) : Math.abs(amount);
+                    let linkedPeopleNames = (data.transaction_people || [])
+                        .filter(tp => tp.transaction === t.id && !tp.deleted)
+                        .map(tp => peopleMap.get(tp.person)?.name)
+                        .filter(name => name)
+                        .join(', ');
+                    return { 
+                        id: t.id, dateString: t.date, dateObj: new Date(t.date.replace(' ', 'T') + 'Z'),
+                        description: t.description || '', categoryName: category?.name || 'N/A', categoryId: t.category,
+                        amount: displayAmount, currencySymbol: wallet ? (currencyInfo?.symbol || wallet.currency) : '',
+                        currencyDecimals: currencyInfo?.decimals || 2, walletName: wallet?.name || 'N/A', walletId: t.wallet,
+                        note: t.note || '', people: linkedPeopleNames, direction: t.direction
+                    };
+                });
+            
+            performSort(); 
+            applyFiltersAndRender(); 
+        }
+
+        function populateCheckboxes(containerId, items, map, typeName) {
+            const container = gebi(containerId);
+            container.innerHTML = ''; 
+            if (!items) return;
+            items.forEach(item => {
+                if (!item.deleted && item.name) { 
+                    map.set(item.id, item); 
+                    const checkboxLabel = document.createElement('label');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox'; checkbox.value = item.id;
+                    checkbox.addEventListener('change', applyFiltersAndRender); 
+                    checkboxLabel.appendChild(checkbox);
+                    checkboxLabel.appendChild(document.createTextNode(` ${item.name}`));
+                    container.appendChild(checkboxLabel);
+                }
+            });
+        }
+        
+        function cycleAmountSort() {
+            if (amountSortState === 'default') amountSortState = 'desc';
+            else if (amountSortState === 'desc') amountSortState = 'asc';
+            else amountSortState = 'default';
+            updateAmountSortIndicator();
+            performSort(); 
+            applyFiltersAndRender(); 
+        }
+
+        function updateAmountSortIndicator() {
+            const indicator = gebi('amountSortIndicator');
+            if (amountSortState === 'asc') indicator.textContent = '▲';
+            else if (amountSortState === 'desc') indicator.textContent = '▼';
+            else indicator.textContent = ''; 
+        }
+
+        function performSort() {
+            if (amountSortState === 'default') {
+                allProcessedTransactions.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime()); 
+            } else { 
+                allProcessedTransactions.sort((a, b) => {
+                    const amountDiff = amountSortState === 'asc' ? a.amount - b.amount : b.amount - a.amount;
+                    if (amountDiff !== 0) return amountDiff;
+                    return b.dateObj.getTime() - a.dateObj.getTime(); 
+                });
+            }
+        }
+        
+        function applyFiltersAndRender() {
+            if (!allProcessedTransactions) return; 
+
+            const globalSearchTerm = gebi('globalSearch').value.toLowerCase().trim();
+            const startDateVal = gebi('startDateFilter').value;
+            const endDateVal = gebi('endDateFilter').value;
+            
+            let startDate = null;
+            if (startDateVal) {
+                const parsedStart = new Date(startDateVal);
+                if (!isNaN(parsedStart.getTime())) {
+                    startDate = parsedStart;
+                    startDate.setHours(0, 0, 0, 0); 
+                }
+            }
+
+            let endDate = null;
+            if (endDateVal) {
+                const parsedEnd = new Date(endDateVal);
+                if (!isNaN(parsedEnd.getTime())) {
+                    endDate = parsedEnd;
+                    endDate.setHours(23, 59, 59, 999); 
+                }
+            }
+
+            const selectedCategoryIds = getSelectedCheckboxValues('categoryFilterDropdownContent');
+            const selectedWalletIds = getSelectedCheckboxValues('walletFilterDropdownContent');
+
+            let filteredTransactions = allProcessedTransactions.filter(t => {
+                const transactionDate = t.dateObj;
+                const matchesDateRange = (!startDate || transactionDate >= startDate) && 
+                                         (!endDate || transactionDate <= endDate);
+
+                let matchesGlobalSearch = true;
+                if (globalSearchTerm !== '') {
+                    matchesGlobalSearch = (t.description && t.description.toLowerCase().includes(globalSearchTerm)) ||
+                                          (t.note && t.note.toLowerCase().includes(globalSearchTerm)) ||
+                                          (t.categoryName && t.categoryName.toLowerCase().includes(globalSearchTerm)) ||
+                                          (t.walletName && t.walletName.toLowerCase().includes(globalSearchTerm)) ||
+                                          (t.people && t.people.toLowerCase().includes(globalSearchTerm));
+                }
+                                          
+                const matchesCategory = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(t.categoryId);
+                const matchesWallet = selectedWalletIds.length === 0 || selectedWalletIds.includes(t.walletId);
+                
+                return matchesDateRange && matchesGlobalSearch && matchesCategory && matchesWallet;
+            });
+            
+            renderTransactions(filteredTransactions); 
+            updateSummary(filteredTransactions.length, allProcessedTransactions.length);
+        }
+
+
+        function getSelectedCheckboxValues(containerId) {
+            const selected = [];
+            gebi(containerId).querySelectorAll('input[type="checkbox"]:checked').forEach(cb => selected.push(cb.value));
+            return selected;
+        }
+        
+        function resetFilters() {
+            gebi('globalSearch').value = '';
+            gebi('startDateFilter').value = '';
+            gebi('endDateFilter').value = '';
+            ['categoryFilterDropdownContent', 'walletFilterDropdownContent'].forEach(id => 
+                gebi(id).querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false)
+            );
+            closeAllFilterDropdowns();
+            amountSortState = 'default'; 
+            updateAmountSortIndicator();
+            performSort(); 
+            applyFiltersAndRender(); 
+        }
+
+        function renderTransactions(transactionsToRender) {
+            const tbody = gebi('transactionsTable').getElementsByTagName('tbody')[0];
+            tbody.innerHTML = '';
+            
+            if (!transactionsToRender || transactionsToRender.length === 0) {
+                 const row = tbody.insertRow();
+                 const cell = row.insertCell(); cell.colSpan = 7; 
+                 cell.textContent = "No transactions match filters or no data loaded.";
+                 cell.style.textAlign = "center"; return;
+            }
+
+            const groupedByMonth = transactionsToRender.reduce((acc, t) => {
+                const monthYear = t.dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+                if (!acc[monthYear]) {
+                    acc[monthYear] = { transactions: [], income: 0, expense: 0 };
+                }
+                acc[monthYear].transactions.push(t);
+                if (t.direction === 1) acc[monthYear].income += t.amount;
+                else acc[monthYear].expense += t.amount; 
+                return acc;
+            }, {});
+
+            const monthOrder = [];
+            const seenMonths = new Set();
+            transactionsToRender.forEach(t => {
+                const monthYear = t.dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
+                if (!seenMonths.has(monthYear)) {
+                    monthOrder.push(monthYear);
+                    seenMonths.add(monthYear);
+                }
+            });
+
+            monthOrder.forEach(monthYear => {
+                const monthData = groupedByMonth[monthYear];
+                const netChange = monthData.income + monthData.expense;
+                let netChangeClass = netChange > 0 ? 'income-amount' : (netChange < 0 ? 'expense-amount' : '');
+
+                const overviewRow = tbody.insertRow();
+                overviewRow.className = 'month-overview-row';
+                const cell = overviewRow.insertCell(); 
+                cell.colSpan = 7; 
+                
+                // Create an inner div for flex layout to ensure full width usage
+                const innerDiv = document.createElement('div');
+                innerDiv.style.display = "flex";
+                innerDiv.style.justifyContent = "space-between";
+                innerDiv.style.alignItems = "center";
+                innerDiv.style.width = "100%"; // Crucial for using full cell width
+
+                innerDiv.innerHTML = `<span class="month-title">${monthYear}</span>` +
+                                     `<span class="month-summary">` +
+                                         `<span class="month-income">In: ${monthData.income.toFixed(2)}</span> ` +
+                                         `<span class="month-expense">Out: ${monthData.expense.toFixed(2)}</span> ` +
+                                         `<span class="month-net ${netChangeClass}">Net: ${netChange.toFixed(2)}</span>` +
+                                     `</span>`;
+                cell.appendChild(innerDiv); // Add the styled div to the cell
+                
+                monthData.transactions.forEach(t => {
+                    const row = tbody.insertRow();
+                    
+                    const day = t.dateObj.getDate();
+                    const weekday = t.dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                    const time = t.dateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+                    row.insertCell().textContent = `${day} ${weekday}, ${time}`;
+                    
+                    row.insertCell().textContent = t.description;
+                    row.insertCell().textContent = t.categoryName;
+                    const amountCell = row.insertCell();
+                    amountCell.textContent = `${t.currencySymbol} ${t.amount.toFixed(t.currencyDecimals)}`;
+                    amountCell.className = t.direction === 0 ? 'expense-amount' : 'income-amount';
+                    row.insertCell().textContent = t.walletName;
+                    row.insertCell().textContent = t.note;
+                    row.insertCell().textContent = t.people;
+                });
+            });
+        }
+
+        function updateSummary(displayedCount, totalCount) {
+            const summaryEl = gebi('summary');
+            if (totalCount === 0 && rawData.transactions === undefined) summaryEl.textContent = "Attempting auto-load or awaiting file upload.";
+            else if (totalCount === 0 && rawData.transactions !== undefined) summaryEl.textContent = "No transactions in loaded data.";
+            else summaryEl.textContent = `Displaying ${displayedCount} of ${totalCount} transactions.`;
+        }
+    </script>
+
+</body>
+</html>
